@@ -38,15 +38,29 @@ Then relay its Resolve instructions to the user. `DAVINCI_RESOLVE_MCP` and `STOR
    - `seconds` is only a floor. The voice sets the real length.
    - The music drop lands on the card with slug `why`. Keep exactly one, or change `DROP` in `make_audio.py`.
    - `SAY` holds spoken text that differs from the card text, for example `"end": "Brand dot com."`.
-   - Brand: `PURPLE`/`ORANGE` (the end card) and `SERIF`/`SANS`, which are font file paths.
-3. In `narrate.py`, set `EMOTION` for the key beats. `exaggeration` 0.5 is neutral, 0.8 is warm, 1.0–1.2 is the peak. A lower `cfg_weight` gives a slower, more deliberate delivery. Every slug not listed uses `DEFAULT` (0.65).
-4. Build it:
+   - Brand: `PURPLE`/`ORANGE` (the end card) and `FONTS`. Each entry is `(path, ttc index, axes)`; variable fonts take axis values by name, for example `{"Optical size": 32, "Weight": 700}` for Inter Display Bold. `pick()` falls back to stock macOS fonts. List a variable font's axes with `ImageFont.truetype(p, 10).get_variation_axes()`.
+   - Fill every `[PLACEHOLDER]` with real, specific details from the brief (city, subject, award, product, numbers). If the user gave none, invent plausible ones and say so. Never attach real public figures or real organisations' endorsements to a made-up story.
+3. **Photos:** in `make_cards.py`, set `ASSETS` to `{slug: "short search query"}` for each `photo` card, then run:
+   ```bash
+   uv run --with pillow fetch_assets.py --preview
+   ```
+   **Look at** `assets/preview-<slug>.jpg`: six numbered candidates per slug. Pick the one that fits the scene and matches the story (the protagonist's gender, no identifiable public figures), then run:
+   ```bash
+   uv run --with pillow fetch_assets.py intro=1 move=0 ...
+   ```
+   It searches Openverse for CC0, public-domain and CC BY images only. Unsplash photos mirrored on Wikimedia come first because they're CC0 and full-resolution; the rest are Flickr, which tops out at 1024 px. It warns under 1600 px. Credits go to `CREDITS.md`, and CC BY images need them in the video description. Short concrete queries work best ("new york city", not "manhattan skyline at dusk from brooklyn"). Files the user drops into `assets/<slug>.jpg` override any search.
+4. In `narrate.py`, set `EMOTION` for the key beats. `exaggeration` 0.5 is neutral, 0.8 is warm, 1.0–1.2 is the peak. A lower `cfg_weight` gives a slower, more deliberate delivery. Every slug not listed uses `DEFAULT` (0.65).
+5. Build it:
    ```bash
    cd ~/Movies/<slug> && ./run.sh
    ```
    This narrates (about 1–2 min, plus a model download on first use), renders the cards, mixes the soundtrack, then builds a timeline and a `<Name> Cards` bin in the **currently open** project. The name comes from the folder; `TIMELINE_NAME="..."` overrides it. A re-run replaces only that timeline and bin.
 
-Check the output: any voice line under about 0.7 s is probably a clipped take. Regenerate it (below) before reporting done.
+Check the output: tile the cards and look at them before reporting done:
+```bash
+ffmpeg -pattern_type glob -i 'cards/*-card.png' -vf scale=640:-1,tile=6x4 -frames:v 1 preview.jpg
+```
+Any voice line under about 0.7 s is probably a clipped take. Regenerate it (below) before reporting done.
 
 ## 3. Tweaks
 - **Re-roll takes:**
@@ -57,7 +71,8 @@ Check the output: any voice line under about 0.7 s is probably a clipped take. R
 - **Text, timing or colours:** edit, then `./run.sh --keep-voice`. Re-narrate the lines whose words changed.
 - **Clone a voice:** set `REFERENCE` in `narrate.py` to a clean clip of 10 s or more, including the user's own recording.
 - **Sound:** in `make_audio.py`, `STYLE_CUE` maps each card style to a sound (whoosh, pop, blip, tick, thud, chime); `BPM`, `CHORDS`, `GAIN` and `VOICE_GAIN` shape the mix.
-- **Real photos or footage:** import them and place them on V2 over the `photo` cards, either with the DaVinci MCP tools or with the same proxy `build_timeline.py` uses.
+- **Swap one photo:** `fetch_assets.py <slug>=<n>`, or drop in your own `assets/<slug>.jpg`, then `./run.sh --keep-voice`.
+- **Video footage instead of a still:** place it on V2 over that card, using the DaVinci MCP tools or the same proxy `build_timeline.py` uses.
 
 ## Limits (tell the user; don't try to script around them)
 - Card text is baked into the images, so it can't be edited in Resolve. Edit `SCRIPT` and re-run instead.

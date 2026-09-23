@@ -2,7 +2,7 @@
 
 A skill that turns a short brief into a **fast kinetic-typography story video in DaVinci Resolve**. It makes a card for every spoken phrase, reads them with an expressive AI voice, adds synthesised sound effects and a music bed that drops into a beat at the story's turn, and cuts everything to the voice on a real Resolve timeline you can keep editing.
 
-Everything runs locally: no stock audio, no cloud TTS, no API keys.
+Voice, music and effects are all generated locally: no stock audio, no cloud TTS, no API keys. Photos come from openly licensed sources and are credited automatically.
 
 ## Install
 
@@ -61,7 +61,8 @@ build_timeline.py ──► Resolve: "<Name> Cards" bin, V1 = cards, A1 = mix
 
 | File | You edit | What it does |
 |---|---|---|
-| `make_cards.py` | `SCRIPT`, colours, fonts | card per phrase; the voice decides how long it stays up |
+| `make_cards.py` | `SCRIPT`, `ASSETS`, `FONTS`, colours | a card per phrase with a real photo on photo cards (variable-font axes supported); the voice decides how long it stays up |
+| `fetch_assets.py` | — | openly licensed photos from Openverse (CC0 Unsplash mirrors first), a numbered preview sheet to choose from, `CREDITS.md` |
 | `narrate.py` | `EMOTION`, `REFERENCE` | expressive narration, per-line intensity, optional voice clone |
 | `make_audio.py` | `STYLE_CUE`, `BPM`, `CHORDS` | oscillator/noise SFX palette and a music bed, no audio files |
 | `build_timeline.py` | — | imports into Resolve and builds the timeline (Studio directly, free edition via the bridge) |
