@@ -1,0 +1,12 @@
+{
+  "name": "story-video",
+  "version": "0.1.0",
+  "description": "Turn a short brief into a fast kinetic-typography story video in DaVinci Resolve: phrase-by-phrase title cards, expressive local AI narration, synthesised SFX and music, cut to the voice on a Resolve timeline.",
+  "author": {
+    "name": "Lokendra Kushwah",
+    "url": "https://github.com/Lokendrakushwah12"
+  },
+  "homepage": "https://github.com/Lokendrakushwah12/story-video",
+  "license": "MIT",
+  "keywords": ["davinci-resolve", "video", "kinetic-typography", "tts", "chatterbox", "motion-graphics"]
+}

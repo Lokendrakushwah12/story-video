@@ -1,0 +1,124 @@
+# Kinetic-typography title cards: one card per spoken phrase. Edit SCRIPT, keep the rest.
+# Edit SCRIPT, then ./run.sh
+import json
+import re
+import subprocess
+import wave
+from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont
+
+W, H = 3840, 2160
+OUT = Path(__file__).parent / "cards"
+SERIF = "/System/Library/Fonts/Supplemental/Didot.ttc"
+SANS = "/System/Library/Fonts/HelveticaNeue.ttc"
+BLACK, WHITE, GREY = (14, 14, 16), (245, 245, 243), (38, 38, 42)
+FPS = "30000/1001"  # match the project timeline (29.97)
+PURPLE, ORANGE = (104, 20, 230), (240, 110, 80)  # end-card brand colours: swap for yours
+# Fallback narration when narrate.py (Chatterbox) hasn't run: macOS `say`. `say -v '?'` lists voices;
+# System Settings > Accessibility > Spoken Content > Manage Voices adds better (Premium) ones. None disables it.
+VOICE = "Samantha"
+RATE = 235  # words per minute; say's default 175 drags
+PAD = 0.05  # lines run into each other like a real read, not a pause after each
+SAY = {"end": "Brand dot com."}  # what to speak when it differs from the card text
+
+# (slug, style, text, seconds)
+# styles: serif | sans | white | photo | why | end
+SCRIPT = [
+    ("open", "photo", "Three years ago", 1.5),
+    ("had", "sans", "she had an idea", 1.0),
+    ("idea", "serif", "nobody believed in", 1.5),
+    ("day", "photo", "[DAY JOB] by day.", 1.5),
+    ("night", "white", "Code by night.", 1.5),
+    ("rejected", "sans", "rejected", 0.8),
+    ("again", "serif", "again, and again", 1.5),
+    ("almost", "photo", "She almost gave up.", 2.0),
+    ("then", "serif", "Then one conversation", 1.5),
+    ("changed", "sans", "changed everything", 1.5),
+    ("asked", "sans", "Someone asked her", 1.0),
+    ("why", "why", "what are you waiting for?", 1.5),
+    ("launched", "photo", "So she launched [PRODUCT]", 2.0),
+    ("users", "white", "[NUMBER] people use it today.", 2.0),
+    ("started", "serif", "It started with one idea.", 1.5),
+    ("yours", "serif", "What's yours?", 1.5),
+    ("end", "end", "[BRAND]|[BRAND.COM]", 3.0),
+]
+
+
+def font(path, size, index=0):
+    return ImageFont.truetype(path, size, index=index)
+
+
+def wrap(draw, text, f, max_w):
+    lines, cur = [], ""
+    for word in text.split():
+        trial = f"{cur} {word}".strip()
+        if draw.textlength(trial, font=f) <= max_w or not cur:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = word
+    return lines + [cur]
+
+
+def centered(draw, text, f, fill, box=(0, 0, W, H), max_w=None):
+    x0, y0, x1, y1 = box
+    lines = wrap(draw, text, f, max_w or (x1 - x0) * 0.8)
+    lh = f.size * 1.1
+    y = y0 + ((y1 - y0) - lh * len(lines)) / 2
+    for line in lines:
+        draw.text(((x0 + x1) / 2, y + lh / 2), line, font=f, fill=fill, anchor="mm")
+        y += lh
+
+
+def card(style, text):
+    bg = {"white": WHITE, "why": (150, 150, 150)}.get(style, BLACK)
+    img = Image.new("RGB", (W, H), bg)
+    d = ImageDraw.Draw(img)
+    if style == "serif":
+        centered(d, text, font(SERIF, 200), WHITE)
+    elif style == "sans":
+        centered(d, text, font(SANS, 150, index=1), WHITE)  # ponytail: index 1 = Bold in HelveticaNeue.ttc
+    elif style == "white":
+        centered(d, text, font(SERIF, 190), BLACK)
+    elif style == "why":
+        centered(d, text, font(SANS, 220, index=1), WHITE)
+    elif style == "photo":
+        # grey frame = where the real photo/clip goes; caption burned over it
+        d.rectangle((W * 0.18, H * 0.12, W * 0.82, H * 0.88), fill=GREY)
+        d.text((W / 2, H * 0.2), "PHOTO / CLIP", font=font(SANS, 70), fill=(110, 110, 115), anchor="mm")
+        centered(d, text, font(SANS, 150, index=1), WHITE, max_w=W * 0.6)
+    elif style == "end":
+        name, url = text.split("|")
+        d.rectangle((0, 0, W / 2, H), fill=PURPLE)
+        d.rectangle((W / 2, 0, W, H), fill=ORANGE)
+        centered(d, name, font(SANS, 170, index=1), ORANGE, box=(0, 0, W / 2, H))
+        centered(d, url, font(SERIF, 110), WHITE, box=(W / 2, 0, W, H))
+    return img
+
+
+if __name__ == "__main__":
+    OUT.mkdir(exist_ok=True)
+    manifest = []
+    for i, (slug, style, text, secs) in enumerate(SCRIPT):
+        # letter suffix, not a trailing number, so Resolve won't import these as an image sequence
+        png = OUT / f"{i:02d}-{slug}-card.png"
+        card(style, text).save(png)
+        voice = Path(__file__).parent / "voices" / f"{slug}.wav"  # Chatterbox take from narrate.py
+        if not voice.exists() and VOICE:
+            # The film makes room for the voice: a card lasts at least as long as its line takes to say
+            voice = OUT / f"{i:02d}-{slug}-voice.wav"
+            line = SAY.get(slug, re.sub(r"[\[\]|]", " ", text))
+            subprocess.run(["say", "-v", VOICE, "-r", str(RATE), "--file-format=WAVE", "--data-format=LEI16@48000",
+                            "-o", str(voice), line], check=True)
+        if voice.exists():
+            with wave.open(str(voice)) as w:
+                # the voice sets the cut, not the script's guess; only the end card keeps its hold
+                secs = max(secs if style == "end" else 0.5, w.getnframes() / w.getframerate() + PAD)
+        # Resolve imports a PNG as 1 frame and ignores endFrame, so bake each card into an exact-length clip
+        mp4 = png.with_suffix(".mp4")
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-loop", "1", "-framerate", FPS, "-i", str(png),
+                        "-frames:v", str(round(secs * 30000 / 1001)), "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        "-tune", "stillimage", str(mp4)], check=True)
+        manifest.append({"path": str(mp4), "seconds": secs, "voice": str(voice) if voice.exists() else None})
+    (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1))
+    print(len(manifest), "cards,", sum(m["seconds"] for m in manifest), "s")

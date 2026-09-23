@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "story-video",
+  "description": "Kinetic-typography story videos in DaVinci Resolve, narrated and scored locally.",
+  "owner": {
+    "name": "Lokendra Kushwah",
+    "url": "https://github.com/Lokendrakushwah12"
+  },
+  "plugins": [
+    {
+      "name": "story-video",
+      "description": "Brief in, Resolve timeline out: title cards, expressive Chatterbox narration, synthesised SFX and a music bed with a drop, all cut to the voice.",
+      "source": "./",
+      "category": "media"
+    }
+  ]
+}
